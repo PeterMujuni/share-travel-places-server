@@ -16,10 +16,8 @@ const signupUser = async (req, res, next) => {
 	const errors = validationResult(req);
 
 	if (!errors.isEmpty()) {
-		console.log(errors);
 		return next(new HttpError("Invalid inputs passed", 422));
 	}
-
 	const { name, email, password } = req.body;
 
 	let existingUser;
@@ -38,7 +36,7 @@ const signupUser = async (req, res, next) => {
 	const createdUser = new User({
 		name,
 		email,
-		image: "https://i.pravatar.cc/300",
+		image: req.file.path,
 		password,
 		places: []
 	});
