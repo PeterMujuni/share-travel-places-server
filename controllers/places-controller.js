@@ -1,4 +1,5 @@
 const { validationResult } = require("express-validator");
+const fs = require("fs");
 const HttpError = require("../models/http-error");
 const getCoordsForAddress = require("../util/location");
 const Place = require("../models/place");
@@ -32,6 +33,7 @@ const getPlaceById = async (req, res, next) => {
 
 const getPlacesByUserId = async (req, res, next) => {
 	const userId = req.params.uid;
+
 	let userWithPlaces;
 
 	try {
@@ -49,7 +51,7 @@ const getPlacesByUserId = async (req, res, next) => {
 			)
 		);
 	}
-	
+
 	res.json({
 		places: userWithPlaces.places.map((place) =>
 			place.toObject({ getters: true })
@@ -65,7 +67,7 @@ const createPlace = async (req, res, next) => {
 		return next(new HttpError("Invalid inputs passed", 422));
 	}
 
-	const { title, description, address, creator } = req.body;
+	const { title, description, address } = req.body;
 
 	let coordinates;
 	try {
@@ -79,14 +81,14 @@ const createPlace = async (req, res, next) => {
 		description,
 		address,
 		location: coordinates,
-		image: "https://via.placeholder.com/150",
-		creator,
+		image: req.file.path,
+		creator: req.userData.userId,
 	});
 
 	let user;
 
 	try {
-		user = await User.findById(creator);
+		user = await User.findById(req.userData.userId);
 	} catch (error) {
 		return next(new HttpError("Creating place failed", 500));
 	}
@@ -117,7 +119,6 @@ const updatePlace = async (req, res, next) => {
 	const errors = validationResult(req);
 
 	if (!errors.isEmpty()) {
-		console.log(errors);
 		return next(new HttpError("Invalid inputs passed", 422));
 	}
 
@@ -129,6 +130,10 @@ const updatePlace = async (req, res, next) => {
 		place = await Place.findById(placeId);
 	} catch (error) {
 		return next(new HttpError("Could not find place with that ID", 500));
+	}
+
+	if (place.creator.toString() !== req.userData.userId) {
+		return next(new HttpError("Unauthorizes to change this place", 401));
 	}
 
 	place.title = title;
@@ -155,17 +160,28 @@ const deletePlace = async (req, res, next) => {
 	if (!place) {
 		return next(new HttpError("Could not find place", 404));
 	}
+	console.log(place.creator.id);
+	if (place.creator.id !== req.userData.userId) {
+		return next(new HttpError("Unauthorized to delete this place", 404));
+	}
+
+	const imagePath = place.image;
 
 	try {
 		const sess = await mongoose.startSession();
 		await sess.startTransaction();
-		await place.remove({session: sess});
-		place.creator.places.pull(place)
-		await place.creator.save({session: sess})
-		await sess.commitTransaction()
+		await place.remove({ session: sess });
+		place.creator.places.pull(place);
+		await place.creator.save({ session: sess });
+		await sess.commitTransaction();
 	} catch (error) {
 		return next(new HttpError("Could not delete place in database", 500));
 	}
+
+	//clean up
+	fs.unlink(imagePath, (err) => {
+		console.log(err);
+	});
 
 	res.status(200).json({ message: "Deleted place." });
 };

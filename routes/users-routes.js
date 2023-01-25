@@ -17,7 +17,7 @@ router.post(
 	fileUpload.single('image'),
 	[
 		check("name").trim().notEmpty(),
-		check("email").normalizeEmail().isEmail(),
+		check("email").normalizeEmail({gmail_remove_dots: false}).isEmail(),
 		check("password").isLength({ min: 6 }),
 	],
 	signupUser
