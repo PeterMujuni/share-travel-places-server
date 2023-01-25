@@ -1,4 +1,3 @@
-require("dotenv").config();
 const HttpError = require("../models/http-error");
 const jwt = require("jsonwebtoken");
 

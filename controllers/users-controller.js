@@ -1,4 +1,3 @@
-require("dotenv").config();
 const HttpError = require("../models/http-error");
 const { validationResult } = require("express-validator");
 const User = require("../models/user");
